@@ -114,8 +114,8 @@ func (r *EventResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 	state.Name = types.StringValue(e.Name)
-	if e.Schema != "" {
-		state.Schema = types.StringValue(e.Schema)
+	if len(e.Schema) > 0 && string(e.Schema) != "null" {
+		state.Schema = types.StringValue(string(e.Schema))
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

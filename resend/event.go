@@ -2,13 +2,14 @@ package resend
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 )
 
 type Event struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Schema string `json:"schema"`
+	ID     string          `json:"id"`
+	Name   string          `json:"name"`
+	Schema json.RawMessage `json:"schema"`
 }
 
 type CreateEventRequest struct {
