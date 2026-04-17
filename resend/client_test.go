@@ -53,3 +53,36 @@ func TestClientDo_404(t *testing.T) {
 		t.Errorf("expected 404 HTTPError, got: %v", err)
 	}
 }
+
+func TestClientDo_withBody(t *testing.T) {
+	type payload struct {
+		Name string `json:"name"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
+		}
+		var body payload
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("failed to decode body: %v", err)
+		}
+		if body.Name != "test" {
+			t.Errorf("expected name=test, got %s", body.Name)
+		}
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"id": "xyz"})
+	}))
+	defer srv.Close()
+
+	c := newTestClient(srv)
+	var out struct{ ID string `json:"id"` }
+	if err := c.Do(context.Background(), http.MethodPost, "/items", payload{Name: "test"}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.ID != "xyz" {
+		t.Errorf("expected xyz, got %s", out.ID)
+	}
+}
