@@ -6,34 +6,37 @@ import (
 )
 
 type Template struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Alias   string `json:"alias"`
-	From    string `json:"from"`
-	Subject string `json:"subject"`
-	ReplyTo string `json:"reply_to"`
-	HTML    string `json:"html"`
-	Text    string `json:"text"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Alias     string   `json:"alias"`
+	From      string   `json:"from"`
+	Subject   string   `json:"subject"`
+	ReplyTo   string   `json:"reply_to"`
+	HTML      string   `json:"html"`
+	Text      string   `json:"text"`
+	Variables []string `json:"variables"`
 }
 
 type CreateTemplateRequest struct {
-	Name    string `json:"name"`
-	HTML    string `json:"html"`
-	Alias   string `json:"alias,omitempty"`
-	From    string `json:"from,omitempty"`
-	Subject string `json:"subject,omitempty"`
-	ReplyTo string `json:"reply_to,omitempty"`
-	Text    string `json:"text,omitempty"`
+	Name      string   `json:"name"`
+	HTML      string   `json:"html"`
+	Alias     string   `json:"alias,omitempty"`
+	From      string   `json:"from,omitempty"`
+	Subject   string   `json:"subject,omitempty"`
+	ReplyTo   string   `json:"reply_to,omitempty"`
+	Text      string   `json:"text,omitempty"`
+	Variables []string `json:"variables,omitempty"`
 }
 
 type UpdateTemplateRequest struct {
-	Name    string `json:"name,omitempty"`
-	HTML    string `json:"html,omitempty"`
-	Alias   string `json:"alias,omitempty"`
-	From    string `json:"from,omitempty"`
-	Subject string `json:"subject,omitempty"`
-	ReplyTo string `json:"reply_to,omitempty"`
-	Text    string `json:"text,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	HTML      string   `json:"html,omitempty"`
+	Alias     string   `json:"alias,omitempty"`
+	From      string   `json:"from,omitempty"`
+	Subject   string   `json:"subject,omitempty"`
+	ReplyTo   string   `json:"reply_to,omitempty"`
+	Text      string   `json:"text,omitempty"`
+	Variables []string `json:"variables,omitempty"`
 }
 
 func (c *Client) CreateTemplate(ctx context.Context, req CreateTemplateRequest) (string, error) {

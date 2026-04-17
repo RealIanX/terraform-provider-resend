@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -31,6 +33,7 @@ type TemplateResourceModel struct {
 	ReplyTo   types.String `tfsdk:"reply_to"`
 	Text      types.String `tfsdk:"text"`
 	Published types.Bool   `tfsdk:"published"`
+	Variables types.List   `tfsdk:"variables"`
 }
 
 func ResendTemplateResource() resource.Resource { return &TemplateResource{} }
@@ -60,6 +63,13 @@ func (r *TemplateResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Default:     booldefault.StaticBool(false),
 				Description: "Set true to publish. Resend has no unpublish endpoint; this only triggers a publish call.",
 			},
+			"variables": schema.ListAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
+				Description: "List of variable names used in the template (required when using {{{var}}} placeholders).",
+				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+			},
 		},
 	}
 }
@@ -84,13 +94,14 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	id, err := r.client.CreateTemplate(ctx, resend.CreateTemplateRequest{
-		Name:    plan.Name.ValueString(),
-		HTML:    plan.HTML.ValueString(),
-		Alias:   plan.Alias.ValueString(),
-		From:    plan.From.ValueString(),
-		Subject: plan.Subject.ValueString(),
-		ReplyTo: plan.ReplyTo.ValueString(),
-		Text:    plan.Text.ValueString(),
+		Name:      plan.Name.ValueString(),
+		HTML:      plan.HTML.ValueString(),
+		Alias:     plan.Alias.ValueString(),
+		From:      plan.From.ValueString(),
+		Subject:   plan.Subject.ValueString(),
+		ReplyTo:   plan.ReplyTo.ValueString(),
+		Text:      plan.Text.ValueString(),
+		Variables: listToStrings(ctx, plan.Variables),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error Creating Template", err.Error())
@@ -146,13 +157,14 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 
 	id := state.ID.ValueString()
 	if err := r.client.UpdateTemplate(ctx, id, resend.UpdateTemplateRequest{
-		Name:    plan.Name.ValueString(),
-		HTML:    plan.HTML.ValueString(),
-		Alias:   plan.Alias.ValueString(),
-		From:    plan.From.ValueString(),
-		Subject: plan.Subject.ValueString(),
-		ReplyTo: plan.ReplyTo.ValueString(),
-		Text:    plan.Text.ValueString(),
+		Name:      plan.Name.ValueString(),
+		HTML:      plan.HTML.ValueString(),
+		Alias:     plan.Alias.ValueString(),
+		From:      plan.From.ValueString(),
+		Subject:   plan.Subject.ValueString(),
+		ReplyTo:   plan.ReplyTo.ValueString(),
+		Text:      plan.Text.ValueString(),
+		Variables: listToStrings(ctx, plan.Variables),
 	}); err != nil {
 		resp.Diagnostics.AddError("Error Updating Template", err.Error())
 		return
@@ -193,6 +205,20 @@ func applyTemplateToModel(m *TemplateResourceModel, t *resend.Template) {
 	m.Subject = types.StringValue(t.Subject)
 	m.ReplyTo = types.StringValue(t.ReplyTo)
 	m.Text = types.StringValue(t.Text)
+	elems := make([]attr.Value, len(t.Variables))
+	for i, v := range t.Variables {
+		elems[i] = types.StringValue(v)
+	}
+	m.Variables, _ = types.ListValue(types.StringType, elems)
+}
+
+func listToStrings(ctx context.Context, l types.List) []string {
+	if l.IsNull() || l.IsUnknown() {
+		return nil
+	}
+	var out []string
+	_ = l.ElementsAs(ctx, &out, false)
+	return out
 }
 
 func isNotFound(err error) bool {
