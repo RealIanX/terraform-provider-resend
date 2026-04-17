@@ -56,6 +56,7 @@ func TestDeleteTemplate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodDelete || r.URL.Path != "/templates/tpl-1" {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+			return
 		}
 		called = true
 		w.WriteHeader(http.StatusOK)
@@ -76,6 +77,7 @@ func TestPublishTemplate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/templates/tpl-1/publish" {
 			t.Errorf("unexpected: %s %s", r.Method, r.URL.Path)
+			return
 		}
 		called = true
 		w.WriteHeader(http.StatusOK)
