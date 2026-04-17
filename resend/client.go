@@ -79,8 +79,8 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 		}
 	}
 
-	if out != nil && resp.ContentLength != 0 {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if out != nil {
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("resend: decode response: %w", err)
 		}
 	}
