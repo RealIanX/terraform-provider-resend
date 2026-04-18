@@ -11,6 +11,7 @@ type Topic struct {
 	DefaultSubscription string `json:"default_subscription"`
 	Description         string `json:"description"`
 	Visibility          string `json:"visibility"`
+	CreatedAt           string `json:"created_at"`
 }
 
 type CreateTopicRequest struct {

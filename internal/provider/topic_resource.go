@@ -26,6 +26,7 @@ type TopicResourceModel struct {
 	DefaultSubscription types.String `tfsdk:"default_subscription"`
 	Description         types.String `tfsdk:"description"`
 	Visibility          types.String `tfsdk:"visibility"`
+	CreatedAt           types.String `tfsdk:"created_at"`
 }
 
 func ResendTopicResource() resource.Resource { return &TopicResource{} }
@@ -64,6 +65,10 @@ func (r *TopicResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Description: "public or private.",
 				Default:     stringdefault.StaticString("private"),
 			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 creation timestamp.",
+			},
 		},
 	}
 }
@@ -98,6 +103,14 @@ func (r *TopicResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 	plan.ID = types.StringValue(id)
+
+	t, err := r.client.GetTopic(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Topic After Create", err.Error())
+		return
+	}
+	plan.CreatedAt = types.StringValue(t.CreatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -121,6 +134,7 @@ func (r *TopicResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	state.DefaultSubscription = types.StringValue(t.DefaultSubscription)
 	state.Description = types.StringValue(t.Description)
 	state.Visibility = types.StringValue(t.Visibility)
+	state.CreatedAt = types.StringValue(t.CreatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -142,6 +156,7 @@ func (r *TopicResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 	plan.ID = state.ID
+	plan.CreatedAt = state.CreatedAt
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

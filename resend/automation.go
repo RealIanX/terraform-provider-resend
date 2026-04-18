@@ -12,6 +12,8 @@ type Automation struct {
 	Status      string          `json:"status"`
 	Steps       json.RawMessage `json:"steps"`
 	Connections json.RawMessage `json:"connections"`
+	CreatedAt   string          `json:"created_at"`
+	UpdatedAt   string          `json:"updated_at"`
 }
 
 type CreateAutomationRequest struct {

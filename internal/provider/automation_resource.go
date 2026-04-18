@@ -27,6 +27,8 @@ type AutomationResourceModel struct {
 	Status      types.String `tfsdk:"status"`
 	Steps       types.String `tfsdk:"steps"`
 	Connections types.String `tfsdk:"connections"`
+	CreatedAt   types.String `tfsdk:"created_at"`
+	UpdatedAt   types.String `tfsdk:"updated_at"`
 }
 
 func ResendAutomationResource() resource.Resource { return &AutomationResource{} }
@@ -65,6 +67,14 @@ func (r *AutomationResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:      true,
 				Description:   "JSON array of step connections. Must be provided with steps.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 creation timestamp.",
+			},
+			"updated_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 last-update timestamp.",
 			},
 		},
 	}
@@ -107,6 +117,15 @@ func (r *AutomationResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 	plan.ID = types.StringValue(id)
+
+	a, err := r.client.GetAutomation(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Automation After Create", err.Error())
+		return
+	}
+	plan.CreatedAt = types.StringValue(a.CreatedAt)
+	plan.UpdatedAt = types.StringValue(a.UpdatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -134,6 +153,8 @@ func (r *AutomationResource) Read(ctx context.Context, req resource.ReadRequest,
 	if len(a.Connections) > 0 && string(a.Connections) != "null" {
 		state.Connections = types.StringValue(string(a.Connections))
 	}
+	state.CreatedAt = types.StringValue(a.CreatedAt)
+	state.UpdatedAt = types.StringValue(a.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -156,6 +177,15 @@ func (r *AutomationResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 	plan.ID = state.ID
+	plan.CreatedAt = state.CreatedAt
+
+	a, err := r.client.GetAutomation(ctx, state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Automation After Update", err.Error())
+		return
+	}
+	plan.UpdatedAt = types.StringValue(a.UpdatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

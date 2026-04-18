@@ -24,16 +24,22 @@ var _ resource.ResourceWithConfigure = &TemplateResource{}
 type TemplateResource struct{ client *resend.Client }
 
 type TemplateResourceModel struct {
-	ID        types.String `tfsdk:"id"`
-	Name      types.String `tfsdk:"name"`
-	HTML      types.String `tfsdk:"html"`
-	Alias     types.String `tfsdk:"alias"`
-	From      types.String `tfsdk:"from"`
-	Subject   types.String `tfsdk:"subject"`
-	ReplyTo   types.String `tfsdk:"reply_to"`
-	Text      types.String `tfsdk:"text"`
-	Published types.Bool   `tfsdk:"published"`
-	Variables types.List   `tfsdk:"variables"`
+	ID                     types.String `tfsdk:"id"`
+	Name                   types.String `tfsdk:"name"`
+	HTML                   types.String `tfsdk:"html"`
+	Alias                  types.String `tfsdk:"alias"`
+	From                   types.String `tfsdk:"from"`
+	Subject                types.String `tfsdk:"subject"`
+	ReplyTo                types.List   `tfsdk:"reply_to"`
+	Text                   types.String `tfsdk:"text"`
+	Published              types.Bool   `tfsdk:"published"`
+	Variables              types.List   `tfsdk:"variables"`
+	Status                 types.String `tfsdk:"status"`
+	CurrentVersionID       types.String `tfsdk:"current_version_id"`
+	HasUnpublishedVersions types.Bool   `tfsdk:"has_unpublished_versions"`
+	PublishedAt            types.String `tfsdk:"published_at"`
+	CreatedAt              types.String `tfsdk:"created_at"`
+	UpdatedAt              types.String `tfsdk:"updated_at"`
 }
 
 func ResendTemplateResource() resource.Resource { return &TemplateResource{} }
@@ -43,20 +49,29 @@ func (r *TemplateResource) Metadata(_ context.Context, req resource.MetadataRequ
 }
 
 func (r *TemplateResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	computed := func() []planmodifier.String {
+	computedStr := func() []planmodifier.String {
 		return []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
+	}
+	computedList := func() []planmodifier.List {
+		return []planmodifier.List{listplanmodifier.UseStateForUnknown()}
 	}
 	resp.Schema = schema.Schema{
 		Description: "Manages a Resend email template.",
 		Attributes: map[string]schema.Attribute{
-			"id":       schema.StringAttribute{Computed: true, Description: "Template UUID.", PlanModifiers: computed()},
-			"name":     schema.StringAttribute{Required: true, Description: "Template name."},
-			"html":     schema.StringAttribute{Required: true, Description: "HTML body."},
-			"alias":    schema.StringAttribute{Optional: true, Computed: true, Description: "Template alias.", PlanModifiers: computed()},
-			"from":     schema.StringAttribute{Optional: true, Computed: true, Description: "Default sender.", PlanModifiers: computed()},
-			"subject":  schema.StringAttribute{Optional: true, Computed: true, Description: "Default subject.", PlanModifiers: computed()},
-			"reply_to": schema.StringAttribute{Optional: true, Computed: true, Description: "Default reply-to.", PlanModifiers: computed()},
-			"text":     schema.StringAttribute{Optional: true, Computed: true, Description: "Plain-text body.", PlanModifiers: computed()},
+			"id":      schema.StringAttribute{Computed: true, Description: "Template UUID.", PlanModifiers: computedStr()},
+			"name":    schema.StringAttribute{Required: true, Description: "Template name."},
+			"html":    schema.StringAttribute{Required: true, Description: "HTML body."},
+			"alias":   schema.StringAttribute{Optional: true, Computed: true, Description: "Template alias.", PlanModifiers: computedStr()},
+			"from":    schema.StringAttribute{Optional: true, Computed: true, Description: "Default sender.", PlanModifiers: computedStr()},
+			"subject": schema.StringAttribute{Optional: true, Computed: true, Description: "Default subject.", PlanModifiers: computedStr()},
+			"reply_to": schema.ListAttribute{
+				ElementType:   types.StringType,
+				Optional:      true,
+				Computed:      true,
+				Description:   "Reply-to address(es).",
+				PlanModifiers: computedList(),
+			},
+			"text": schema.StringAttribute{Optional: true, Computed: true, Description: "Plain-text body.", PlanModifiers: computedStr()},
 			"published": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
@@ -64,12 +79,18 @@ func (r *TemplateResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				Description: "Set true to publish. Resend has no unpublish endpoint; this only triggers a publish call.",
 			},
 			"variables": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Computed:    true,
-				Description: "List of variable names used in the template (required when using {{{var}}} placeholders).",
-				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+				ElementType:   types.StringType,
+				Optional:      true,
+				Computed:      true,
+				Description:   "List of variable key names used in the template (required when using {{{var}}} placeholders).",
+				PlanModifiers: computedList(),
 			},
+			"status":                   schema.StringAttribute{Computed: true, Description: "Template status (e.g. draft, published)."},
+			"current_version_id":        schema.StringAttribute{Computed: true, Description: "ID of the current published version."},
+			"has_unpublished_versions":  schema.BoolAttribute{Computed: true, Description: "Whether the template has unpublished changes."},
+			"published_at":              schema.StringAttribute{Computed: true, Description: "ISO 8601 timestamp of last publish."},
+			"created_at":                schema.StringAttribute{Computed: true, Description: "ISO 8601 creation timestamp."},
+			"updated_at":                schema.StringAttribute{Computed: true, Description: "ISO 8601 last-update timestamp."},
 		},
 	}
 }
@@ -99,7 +120,7 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		Alias:     plan.Alias.ValueString(),
 		From:      plan.From.ValueString(),
 		Subject:   plan.Subject.ValueString(),
-		ReplyTo:   plan.ReplyTo.ValueString(),
+		ReplyTo:   listToStrings(ctx, plan.ReplyTo),
 		Text:      plan.Text.ValueString(),
 		Variables: stringsToVariables(ctx, plan.Variables),
 	})
@@ -121,7 +142,7 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Error Reading Template After Create", err.Error())
 		return
 	}
-	applyTemplateToModel(&plan, t)
+	applyTemplateToModel(ctx, &plan, t)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -142,7 +163,7 @@ func (r *TemplateResource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.Diagnostics.AddError("Error Reading Template", err.Error())
 		return
 	}
-	applyTemplateToModel(&state, t)
+	applyTemplateToModel(ctx, &state, t)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -162,7 +183,7 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 		Alias:     plan.Alias.ValueString(),
 		From:      plan.From.ValueString(),
 		Subject:   plan.Subject.ValueString(),
-		ReplyTo:   plan.ReplyTo.ValueString(),
+		ReplyTo:   listToStrings(ctx, plan.ReplyTo),
 		Text:      plan.Text.ValueString(),
 		Variables: stringsToVariables(ctx, plan.Variables),
 	}); err != nil {
@@ -177,7 +198,14 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 		}
 	}
 
+	t, err := r.client.GetTemplate(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Template After Update", err.Error())
+		return
+	}
 	plan.ID = state.ID
+	applyTemplateToModel(ctx, &plan, t)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -197,27 +225,47 @@ func (r *TemplateResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func applyTemplateToModel(m *TemplateResourceModel, t *resend.Template) {
+func applyTemplateToModel(ctx context.Context, m *TemplateResourceModel, t *resend.Template) {
 	m.Name = types.StringValue(t.Name)
 	m.HTML = types.StringValue(t.HTML)
 	m.Alias = types.StringValue(t.Alias)
 	m.From = types.StringValue(t.From)
 	m.Subject = types.StringValue(t.Subject)
-	m.ReplyTo = types.StringValue(t.ReplyTo)
 	m.Text = types.StringValue(t.Text)
-	elems := make([]attr.Value, len(t.Variables))
-	for i, v := range t.Variables {
-		elems[i] = types.StringValue(v.Key)
+	m.Status = types.StringValue(t.Status)
+	m.CurrentVersionID = types.StringValue(t.CurrentVersionID)
+	m.HasUnpublishedVersions = types.BoolValue(t.HasUnpublishedVersions)
+	m.PublishedAt = types.StringValue(t.PublishedAt)
+	m.CreatedAt = types.StringValue(t.CreatedAt)
+	m.UpdatedAt = types.StringValue(t.UpdatedAt)
+
+	replyElems := make([]attr.Value, len(t.ReplyTo))
+	for i, s := range t.ReplyTo {
+		replyElems[i] = types.StringValue(s)
 	}
-	m.Variables, _ = types.ListValue(types.StringType, elems)
+	m.ReplyTo, _ = types.ListValue(types.StringType, replyElems)
+
+	varElems := make([]attr.Value, len(t.Variables))
+	for i, v := range t.Variables {
+		varElems[i] = types.StringValue(v.Key)
+	}
+	m.Variables, _ = types.ListValue(types.StringType, varElems)
 }
 
-func stringsToVariables(ctx context.Context, l types.List) []resend.TemplateVariable {
+func listToStrings(ctx context.Context, l types.List) []string {
 	if l.IsNull() || l.IsUnknown() {
 		return nil
 	}
-	var names []string
-	_ = l.ElementsAs(ctx, &names, false)
+	var out []string
+	_ = l.ElementsAs(ctx, &out, false)
+	return out
+}
+
+func stringsToVariables(ctx context.Context, l types.List) []resend.TemplateVariable {
+	names := listToStrings(ctx, l)
+	if len(names) == 0 {
+		return nil
+	}
 	vars := make([]resend.TemplateVariable, len(names))
 	for i, n := range names {
 		vars[i] = resend.TemplateVariable{Key: n}

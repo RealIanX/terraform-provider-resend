@@ -7,19 +7,21 @@ import (
 )
 
 type Event struct {
-	ID     string          `json:"id"`
-	Name   string          `json:"name"`
-	Schema json.RawMessage `json:"schema"`
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Schema    json.RawMessage `json:"schema"`
+	CreatedAt string          `json:"created_at"`
+	UpdatedAt string          `json:"updated_at"`
 }
 
 type CreateEventRequest struct {
-	Name   string `json:"name"`
-	Schema any    `json:"schema,omitempty"`
+	Name   string          `json:"name"`
+	Schema json.RawMessage `json:"schema,omitempty"`
 }
 
 type UpdateEventRequest struct {
-	Name   string `json:"name,omitempty"`
-	Schema any    `json:"schema,omitempty"`
+	Name   string          `json:"name,omitempty"`
+	Schema json.RawMessage `json:"schema,omitempty"`
 }
 
 func (c *Client) CreateEvent(ctx context.Context, req CreateEventRequest) (string, error) {

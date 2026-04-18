@@ -20,8 +20,9 @@ var _ resource.ResourceWithConfigure = &SegmentResource{}
 type SegmentResource struct{ client *resend.Client }
 
 type SegmentResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	CreatedAt types.String `tfsdk:"created_at"`
 }
 
 func ResendSegmentResource() resource.Resource { return &SegmentResource{} }
@@ -43,6 +44,10 @@ func (r *SegmentResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:      true,
 				Description:   "Segment name.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 creation timestamp.",
 			},
 		},
 	}
@@ -73,6 +78,14 @@ func (r *SegmentResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 	plan.ID = types.StringValue(id)
+
+	s, err := r.client.GetSegment(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Segment After Create", err.Error())
+		return
+	}
+	plan.CreatedAt = types.StringValue(s.CreatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -93,6 +106,7 @@ func (r *SegmentResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	state.Name = types.StringValue(s.Name)
+	state.CreatedAt = types.StringValue(s.CreatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

@@ -7,19 +7,27 @@ import (
 
 // TemplateVariable represents a single template variable as required by the Resend API.
 type TemplateVariable struct {
-	Key string `json:"key"`
+	Key           string `json:"key"`
+	Type          string `json:"type,omitempty"`
+	FallbackValue string `json:"fallback_value,omitempty"`
 }
 
 type Template struct {
-	ID        string             `json:"id"`
-	Name      string             `json:"name"`
-	Alias     string             `json:"alias"`
-	From      string             `json:"from"`
-	Subject   string             `json:"subject"`
-	ReplyTo   string             `json:"reply_to"`
-	HTML      string             `json:"html"`
-	Text      string             `json:"text"`
-	Variables []TemplateVariable `json:"variables"`
+	ID                     string             `json:"id"`
+	Name                   string             `json:"name"`
+	Alias                  string             `json:"alias"`
+	From                   string             `json:"from"`
+	Subject                string             `json:"subject"`
+	ReplyTo                []string           `json:"reply_to"`
+	HTML                   string             `json:"html"`
+	Text                   string             `json:"text"`
+	Variables              []TemplateVariable `json:"variables"`
+	Status                 string             `json:"status"`
+	CurrentVersionID       string             `json:"current_version_id"`
+	HasUnpublishedVersions bool               `json:"has_unpublished_versions"`
+	PublishedAt            string             `json:"published_at"`
+	CreatedAt              string             `json:"created_at"`
+	UpdatedAt              string             `json:"updated_at"`
 }
 
 type CreateTemplateRequest struct {
@@ -28,7 +36,7 @@ type CreateTemplateRequest struct {
 	Alias     string             `json:"alias,omitempty"`
 	From      string             `json:"from,omitempty"`
 	Subject   string             `json:"subject,omitempty"`
-	ReplyTo   string             `json:"reply_to,omitempty"`
+	ReplyTo   []string           `json:"reply_to,omitempty"`
 	Text      string             `json:"text,omitempty"`
 	Variables []TemplateVariable `json:"variables,omitempty"`
 }
@@ -39,7 +47,7 @@ type UpdateTemplateRequest struct {
 	Alias     string             `json:"alias,omitempty"`
 	From      string             `json:"from,omitempty"`
 	Subject   string             `json:"subject,omitempty"`
-	ReplyTo   string             `json:"reply_to,omitempty"`
+	ReplyTo   []string           `json:"reply_to,omitempty"`
 	Text      string             `json:"text,omitempty"`
 	Variables []TemplateVariable `json:"variables,omitempty"`
 }

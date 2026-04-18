@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -21,9 +20,11 @@ var _ resource.ResourceWithConfigure = &EventResource{}
 type EventResource struct{ client *resend.Client }
 
 type EventResourceModel struct {
-	ID     types.String `tfsdk:"id"`
-	Name   types.String `tfsdk:"name"`
-	Schema types.String `tfsdk:"schema"`
+	ID        types.String `tfsdk:"id"`
+	Name      types.String `tfsdk:"name"`
+	Schema    types.String `tfsdk:"schema"`
+	CreatedAt types.String `tfsdk:"created_at"`
+	UpdatedAt types.String `tfsdk:"updated_at"`
 }
 
 func ResendEventResource() resource.Resource { return &EventResource{} }
@@ -51,6 +52,14 @@ func (r *EventResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Description:   "JSON object defining event payload key/type pairs.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"created_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 creation timestamp.",
+			},
+			"updated_at": schema.StringAttribute{
+				Computed:    true,
+				Description: "ISO 8601 last-update timestamp.",
+			},
 		},
 	}
 }
@@ -67,15 +76,11 @@ func (r *EventResource) Configure(_ context.Context, req resource.ConfigureReque
 	r.client = client
 }
 
-func parseEventSchema(s types.String) any {
+func schemaToRawJSON(s types.String) []byte {
 	if s.IsNull() || s.IsUnknown() || s.ValueString() == "" {
 		return nil
 	}
-	var v any
-	if err := json.Unmarshal([]byte(s.ValueString()), &v); err != nil {
-		return nil
-	}
-	return v
+	return []byte(s.ValueString())
 }
 
 func (r *EventResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -87,13 +92,22 @@ func (r *EventResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	id, err := r.client.CreateEvent(ctx, resend.CreateEventRequest{
 		Name:   plan.Name.ValueString(),
-		Schema: parseEventSchema(plan.Schema),
+		Schema: schemaToRawJSON(plan.Schema),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error Creating Event", err.Error())
 		return
 	}
 	plan.ID = types.StringValue(id)
+
+	e, err := r.client.GetEvent(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Event After Create", err.Error())
+		return
+	}
+	plan.CreatedAt = types.StringValue(e.CreatedAt)
+	plan.UpdatedAt = types.StringValue(e.UpdatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -117,6 +131,8 @@ func (r *EventResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	if len(e.Schema) > 0 && string(e.Schema) != "null" {
 		state.Schema = types.StringValue(string(e.Schema))
 	}
+	state.CreatedAt = types.StringValue(e.CreatedAt)
+	state.UpdatedAt = types.StringValue(e.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -131,12 +147,21 @@ func (r *EventResource) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	if err := r.client.UpdateEvent(ctx, state.ID.ValueString(), resend.UpdateEventRequest{
 		Name:   plan.Name.ValueString(),
-		Schema: parseEventSchema(plan.Schema),
+		Schema: schemaToRawJSON(plan.Schema),
 	}); err != nil {
 		resp.Diagnostics.AddError("Error Updating Event", err.Error())
 		return
 	}
 	plan.ID = state.ID
+	plan.CreatedAt = state.CreatedAt
+
+	e, err := r.client.GetEvent(ctx, state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error Reading Event After Update", err.Error())
+		return
+	}
+	plan.UpdatedAt = types.StringValue(e.UpdatedAt)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

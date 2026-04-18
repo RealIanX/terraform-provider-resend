@@ -6,8 +6,9 @@ import (
 )
 
 type Segment struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
 }
 
 func (c *Client) CreateSegment(ctx context.Context, name string) (string, error) {
