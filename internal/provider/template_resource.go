@@ -101,7 +101,7 @@ func (r *TemplateResource) Create(ctx context.Context, req resource.CreateReques
 		Subject:   plan.Subject.ValueString(),
 		ReplyTo:   plan.ReplyTo.ValueString(),
 		Text:      plan.Text.ValueString(),
-		Variables: listToStrings(ctx, plan.Variables),
+		Variables: stringsToVariables(ctx, plan.Variables),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error Creating Template", err.Error())
@@ -164,7 +164,7 @@ func (r *TemplateResource) Update(ctx context.Context, req resource.UpdateReques
 		Subject:   plan.Subject.ValueString(),
 		ReplyTo:   plan.ReplyTo.ValueString(),
 		Text:      plan.Text.ValueString(),
-		Variables: listToStrings(ctx, plan.Variables),
+		Variables: stringsToVariables(ctx, plan.Variables),
 	}); err != nil {
 		resp.Diagnostics.AddError("Error Updating Template", err.Error())
 		return
@@ -207,18 +207,22 @@ func applyTemplateToModel(m *TemplateResourceModel, t *resend.Template) {
 	m.Text = types.StringValue(t.Text)
 	elems := make([]attr.Value, len(t.Variables))
 	for i, v := range t.Variables {
-		elems[i] = types.StringValue(v)
+		elems[i] = types.StringValue(v.Name)
 	}
 	m.Variables, _ = types.ListValue(types.StringType, elems)
 }
 
-func listToStrings(ctx context.Context, l types.List) []string {
+func stringsToVariables(ctx context.Context, l types.List) []resend.TemplateVariable {
 	if l.IsNull() || l.IsUnknown() {
 		return nil
 	}
-	var out []string
-	_ = l.ElementsAs(ctx, &out, false)
-	return out
+	var names []string
+	_ = l.ElementsAs(ctx, &names, false)
+	vars := make([]resend.TemplateVariable, len(names))
+	for i, n := range names {
+		vars[i] = resend.TemplateVariable{Name: n}
+	}
+	return vars
 }
 
 func isNotFound(err error) bool {
