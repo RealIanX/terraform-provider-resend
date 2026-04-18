@@ -268,7 +268,7 @@ func stringsToVariables(ctx context.Context, l types.List) []resend.TemplateVari
 	}
 	vars := make([]resend.TemplateVariable, len(names))
 	for i, n := range names {
-		vars[i] = resend.TemplateVariable{Key: n}
+		vars[i] = resend.TemplateVariable{Key: n, Type: "string"}
 	}
 	return vars
 }
