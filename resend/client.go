@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 const DefaultBaseURL = "https://api.resend.com"
+const maxRetries = 3
 
 type HTTPError struct {
 	Method     string
@@ -43,6 +45,25 @@ func NewClient(apiKey string) *Client {
 }
 
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		err := c.do(ctx, method, path, body, out)
+		if err == nil {
+			return nil
+		}
+		var httpErr *HTTPError
+		if !errors.As(err, &httpErr) || httpErr.StatusCode != 429 || attempt == maxRetries {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+	return nil
+}
+
+func (c *Client) do(ctx context.Context, method, path string, body, out any) error {
 	var bodyReader io.Reader
 	if body != nil {
 		var buf bytes.Buffer
