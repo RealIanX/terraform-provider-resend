@@ -207,7 +207,7 @@ func applyTemplateToModel(m *TemplateResourceModel, t *resend.Template) {
 	m.Text = types.StringValue(t.Text)
 	elems := make([]attr.Value, len(t.Variables))
 	for i, v := range t.Variables {
-		elems[i] = types.StringValue(v.Name)
+		elems[i] = types.StringValue(v.Key)
 	}
 	m.Variables, _ = types.ListValue(types.StringType, elems)
 }
@@ -220,7 +220,7 @@ func stringsToVariables(ctx context.Context, l types.List) []resend.TemplateVari
 	_ = l.ElementsAs(ctx, &names, false)
 	vars := make([]resend.TemplateVariable, len(names))
 	for i, n := range names {
-		vars[i] = resend.TemplateVariable{Name: n}
+		vars[i] = resend.TemplateVariable{Key: n}
 	}
 	return vars
 }

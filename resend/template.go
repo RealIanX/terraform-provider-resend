@@ -7,7 +7,7 @@ import (
 
 // TemplateVariable represents a single template variable as required by the Resend API.
 type TemplateVariable struct {
-	Name string `json:"name"`
+	Key string `json:"key"`
 }
 
 type Template struct {
